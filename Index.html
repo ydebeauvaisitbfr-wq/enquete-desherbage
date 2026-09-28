@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Enquête Salissement Betteraves</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Leaflet (Carte) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Chart.js (Graphiques) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet Routing Machine (Itinéraires) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <!-- html2canvas (Capture d'image de la carte) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-press {
+            transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+        }
+        .btn-press:active {
+            transform: scale(0.96);
+            box-shadow: none !important;
+        }
+        #toast-container {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
+        }
+        #toast-container.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        /* Ajustements pour Leaflet dans flexbox */
+        #map { z-index: 10; }
+        .leaflet-control-container .leaflet-top,
+        .leaflet-control-container .leaflet-bottom { z-index: 10; }
+        .no-scroll { overflow: hidden; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        /* Scrollbar pour les listes déroulantes */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="text-gray-800 antialiased h-[100dvh] flex flex-col overflow-hidden">
+    <!-- Conteneur Principal (max-w-5xl pour PC) -->
+    <div class="max-w-5xl w-full mx-auto bg-white h-full shadow-lg flex flex-col relative overflow-hidden transition-all duration-300">
+        <!-- En-tête -->
+        <header class="bg-emerald-700 text-white py-3 px-4 shadow-md z-50 flex-shrink-0">
+            <h1 class="text-xl font-bold text-center"><i class="fas fa-seedling mr-2"></i>Enquête Salissement Betteraves</h1>
+            <p class="text-center text-[9px] text-emerald-200 mt-0.5 tracking-wider opacity-80">© YohanDebeauvais2026 V1.0 28/09/2026 Développé avec IA</p>
+        </header>
+
+        <!-- Barre d'état GPS -->
+        <div id="gps-status" class="bg-yellow-100 border-b border-yellow-200 text-yellow-800 px-4 py-2 text-sm flex items-center justify-between flex-shrink-0 z-50">
+            <div class="flex items-center">
+                <i id="gps-icon" class="fas fa-satellite-dish animate-pulse mr-2"></i>
+                <span id="gps-text">Recherche du signal GPS...</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="wakelock-badge" class="hidden text-[10px] font-semibold bg-emerald-700/10 text-emerald-900 px-2 py-0.5 rounded-full flex items-center gap-1" title="L'écran reste allumé">
+                    <i class="fas fa-sun text-amber-500"></i> Anti-veille
+                </span>
+                <span id="gps-accuracy" class="text-xs font-bold bg-yellow-200 px-2 py-1 rounded-full hidden"></span>
+            </div>
+        </div>
+
+        <div id="main-content" class="flex-grow overflow-y-auto relative bg-gray-50 h-full">
+            <!-- VUE 1 : RELEVÉ -->
+            <main id="view-releve" class="p-4 md:p-6 flex flex-col gap-4 min-h-full">
+                <p class="text-sm text-gray-500 mb-1 text-center">Cliquez sur une note de propreté pour enregistrer la parcelle actuelle.</p>
+                
+                <!-- Boutons de saisie des 4 classes -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button onclick="handleClassClick(0)" class="btn-press w-full bg-[#166534] hover:bg-[#14532d] text-white rounded-xl p-5 shadow-[0_4px_0_#14532d] flex flex-col items-center justify-center gap-1">
+                        <span class="text-2xl font-black">Très Satisfaisant</span>
+                        <span class="text-sm font-semibold bg-white/20 px-3 py-0.5 rounded-full">Note : 10 - 9</span>
+                        <span class="text-[11px] opacity-80 mt-0.5">Enregistrement direct</span>
+                    </button>
+                    <button onclick="handleClassClick(1)" class="btn-press w-full bg-[#86efac] hover:bg-[#4ade80] text-gray-900 rounded-xl p-5 shadow-[0_4px_0_#22c55e] flex flex-col items-center justify-center gap-1">
+                        <span class="text-2xl font-black">Satisfaisant</span>
+                        <span class="text-sm font-semibold bg-black/10 px-3 py-0.5 rounded-full">Note : 8 - 7</span>
+                        <span class="text-[11px] opacity-80 mt-0.5">+ Sélection des adventices</span>
+                    </button>
+                    <button onclick="handleClassClick(2)" class="btn-press w-full bg-[#facc15] hover:bg-[#eab308] text-gray-900 rounded-xl p-5 shadow-[0_4px_0_#ca8a04] flex flex-col items-center justify-center gap-1">
+                        <span class="text-2xl font-black">Moyen</span>
+                        <span class="text-sm font-semibold bg-black/10 px-3 py-0.5 rounded-full">Note : 6 - 5</span>
+                        <span class="text-[11px] opacity-80 mt-0.5">+ Sélection des adventices</span>
+                    </button>
+                    <button onclick="handleClassClick(3)" class="btn-press w-full bg-[#dc2626] hover:bg-[#b91c1c] text-white rounded-xl p-5 shadow-[0_4px_0_#991b1b] flex flex-col items-center justify-center gap-1">
+                        <span class="text-2xl font-black">Insuffisant</span>
+                        <span class="text-sm font-semibold bg-white/20 px-3 py-0.5 rounded-full">Note : &lt; 5</span>
+                        <span class="text-[11px] opacity-80 mt-0.5">+ Sélection des adventices</span>
+                    </button>
+                </div>
+
+                <div class="h-px bg-gray-200 my-3"></div>
+
+                <!-- Historique récent & Actions Import/Export -->
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="text-lg font-bold text-gray-700">Derniers relevés (<span id="record-count">0</span>)</h2>
+                    <div class="flex gap-2">
+                        <input type="file" id="import-file" class="hidden" accept=".json,.csv" onchange="importData(event)">
+                        <button onclick="document.getElementById('import-file').click()" class="text-sm bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1.5 rounded-lg shadow transition" title="Importer (CSV ou JSON)">
+                            <i class="fas fa-file-import"></i>
+                        </button>
+                        <button onclick="exportJSON()" class="text-sm bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg shadow transition" title="Partager JSON (WhatsApp/Email)">
+                            <i class="fas fa-share-nodes"></i>
+                        </button>
+                        <button onclick="exportCSV()" class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg shadow transition" title="Télécharger en CSV">
+                            <i class="fas fa-download"></i> CSV
+                        </button>
+                        <button onclick="confirmClearData()" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg shadow transition" title="Vider les données">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex-grow">
+                    <ul id="history-list" class="divide-y divide-gray-100 h-full max-h-64 sm:max-h-96 overflow-y-auto">
+                        <li class="p-4 text-center text-gray-500 text-sm">Aucun relevé pour le moment.</li>
+                    </ul>
+                </div>
+            </main>
+
+            <!-- VUE 2 : CARTE -->
+            <main id="view-carte" class="hidden absolute inset-0 z-0 bg-gray-100">
+                <div id="map" class="w-full h-full absolute inset-0"></div>
+
+                <!-- Filtres flottants sur la carte (Départements, Classes, Adventices) -->
+                <div class="absolute top-2 left-2 right-2 md:right-auto md:w-[520px] z-[1000] flex gap-1.5 print-hide">
+                    <!-- Menu Départements -->
+                    <div class="relative flex-1 filter-dropdown min-w-0">
+                        <button onclick="toggleDropdown('map-dept')" id="btn-map-dept" class="w-full bg-white/95 backdrop-blur-sm border border-gray-300 text-gray-800 text-xs sm:text-sm font-medium rounded-lg p-2 shadow-md flex justify-between items-center focus:ring-2 focus:ring-emerald-500">
+                            <span class="truncate">Tous Depts</span> <i class="fas fa-chevron-down text-[10px] text-gray-400 ml-1"></i>
+                        </button>
+                        <div id="dropdown-map-dept" class="hidden absolute top-full left-0 w-48 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto custom-scrollbar"></div>
+                    </div>
+                    <!-- Menu Classes -->
+                    <div class="relative flex-1 filter-dropdown min-w-0">
+                        <button onclick="toggleDropdown('map-class')" id="btn-map-class" class="w-full bg-white/95 backdrop-blur-sm border border-gray-300 text-gray-800 text-xs sm:text-sm font-medium rounded-lg p-2 shadow-md flex justify-between items-center focus:ring-2 focus:ring-emerald-500">
+                            <span class="truncate">Toutes Notes</span> <i class="fas fa-chevron-down text-[10px] text-gray-400 ml-1"></i>
+                        </button>
+                        <div id="dropdown-map-class" class="hidden absolute top-full left-0 w-52 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto custom-scrollbar"></div>
+                    </div>
+                    <!-- Menu Adventices -->
+                    <div class="relative flex-1 filter-dropdown min-w-0">
+                        <button onclick="toggleDropdown('map-weed')" id="btn-map-weed" class="w-full bg-white/95 backdrop-blur-sm border border-gray-300 text-gray-800 text-xs sm:text-sm font-medium rounded-lg p-2 shadow-md flex justify-between items-center focus:ring-2 focus:ring-emerald-500">
+                            <span class="truncate">Adventices</span> <i class="fas fa-chevron-down text-[10px] text-gray-400 ml-1"></i>
+                        </button>
+                        <div id="dropdown-map-weed" class="hidden absolute top-full right-0 md:left-0 w-52 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar"></div>
+                    </div>
+                </div>
+
+                <!-- Légende permanente -->
+                <div id="map-legend" class="absolute top-16 right-2 z-[1000] bg-white/95 backdrop-blur-sm p-3 rounded-lg shadow-md border border-gray-200 pointer-events-none">
+                    <h4 class="font-bold text-xs text-gray-700 mb-2 uppercase tracking-wider">Salissement</h4>
+                    <div class="flex flex-col gap-1.5 text-xs font-medium text-gray-600">
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#166534] border border-black/10 block"></span>Très Satisf. (10-9)</div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#86efac] border border-black/10 block"></span>Satisfaisant (8-7)</div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#facc15] border border-black/10 block"></span>Moyen (6-5)</div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#dc2626] border border-black/10 block"></span>Insuffisant (&lt;5)</div>
+                    </div>
+                </div>
+
+                <!-- Panneau Route (Temps & Multi-points) -->
+                <div id="route-panel" class="hidden absolute top-14 left-2 z-[1000] bg-white/95 backdrop-blur-sm p-2.5 rounded-lg shadow-xl border border-purple-200 flex flex-col items-center gap-2 min-w-[230px] transition-all print-hide">
+                    <div id="route-info" class="text-purple-800 font-bold text-sm text-center w-full">
+                        Cliquez sur la carte pour tracer
+                    </div>
+                    <div class="flex gap-2 w-full">
+                        <button onclick="undoRoutePoint()" class="flex-1 px-2 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-medium transition shadow-sm"><i class="fas fa-undo mr-1"></i>Retrait</button>
+                        <button onclick="clearRoute()" class="flex-1 px-2 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-xs font-medium transition shadow-sm"><i class="fas fa-trash mr-1"></i>Effacer</button>
+                    </div>
+                </div>
+
+                <!-- Barre de saisie rapide directe sur la carte -->
+                <div id="map-quick-record" class="absolute bottom-20 left-4 right-4 z-[400] bg-white/95 backdrop-blur-sm p-2 rounded-lg shadow-md border border-gray-200 flex items-center gap-1.5 print-hide md:max-w-lg md:left-1/2 md:-translate-x-1/2">
+                    <span class="text-[11px] font-bold text-gray-600 px-1 whitespace-nowrap"><i class="fas fa-plus-circle text-emerald-600 mr-1"></i>Noter :</span>
+                    <button onclick="handleClassClick(0)" class="btn-press flex-1 bg-[#166534] text-white font-bold py-1.5 rounded-md text-xs shadow-sm" title="Très Satisfaisant (10-9)">10-9</button>
+                    <button onclick="handleClassClick(1)" class="btn-press flex-1 bg-[#86efac] text-gray-900 font-bold py-1.5 rounded-md text-xs shadow-sm" title="Satisfaisant (8-7)">8-7</button>
+                    <button onclick="handleClassClick(2)" class="btn-press flex-1 bg-[#facc15] text-gray-900 font-bold py-1.5 rounded-md text-xs shadow-sm" title="Moyen (6-5)">6-5</button>
+                    <button onclick="handleClassClick(3)" class="btn-press flex-1 bg-[#dc2626] text-white font-bold py-1.5 rounded-md text-xs shadow-sm" title="Insuffisant (<5)">&lt;5</button>
+                </div>
+
+                <!-- Panneau résumé carte & Boutons d'action -->
+                <div class="absolute bottom-4 left-4 right-4 z-[400] bg-white p-3 rounded-lg shadow-lg flex justify-between items-center text-sm border border-gray-200 print-hide md:max-w-lg md:left-1/2 md:-translate-x-1/2">
+                    <span class="font-bold text-gray-700">Parcelles: <span id="map-point-count" class="text-emerald-600 text-base">0</span></span>
+                    <div class="flex gap-2">
+                        <button id="btn-route" onclick="toggleRouteMode()" class="bg-purple-100 text-purple-700 px-3 py-1.5 rounded-md hover:bg-purple-200 transition font-medium shadow-sm" title="Créer un itinéraire">
+                            <i class="fas fa-route mr-1"></i> Explorer
+                        </button>
+                        <button onclick="exportMapImage()" class="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-200 transition font-medium shadow-sm" title="Capturer la carte en image">
+                            <i class="fas fa-camera mr-1"></i> Capturer
+                        </button>
+                        <button id="btn-follow-gps" onclick="enableFollowGPS()" class="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition font-medium shadow-sm" title="Centrer et suivre ma position GPS (zoom libre)">
+                            <i class="fas fa-crosshairs"></i>
+                        </button>
+                        <button onclick="centerMapOnPoints()" class="bg-gray-100 px-3 py-1.5 rounded-md hover:bg-gray-200 transition font-medium shadow-sm" title="Voir tous les relevés">
+                            <i class="fas fa-expand-arrows-alt text-gray-600"></i>
+                        </button>
+                    </div>
+                </div>
+            </main>
+
+            <!-- VUE 3 : STATISTIQUES -->
+            <main id="view-stats" class="hidden p-4 md:p-6 flex flex-col md:flex-row gap-6 min-h-full">
+                <!-- Section Gauche : Filtres -->
+                <div class="w-full md:w-1/3 flex flex-col gap-6">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                        <h2 class="text-lg font-bold text-gray-700 mb-3"><i class="fas fa-filter mr-2 text-emerald-600"></i>Filtres d'analyse</h2>
+                        <div class="flex flex-col gap-3">
+                            <!-- Menu Départements (Stats) -->
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Départements</label>
+                                <div class="relative filter-dropdown">
+                                    <button onclick="toggleDropdown('stats-dept')" id="btn-stats-dept" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-sm font-medium rounded-lg p-2 flex justify-between items-center focus:ring-2 focus:ring-emerald-500">
+                                        <span class="truncate">Tous Depts</span> <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                                    </button>
+                                    <div id="dropdown-stats-dept" class="hidden absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                                </div>
+                            </div>
+                            <!-- Menu Classes (Stats) -->
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Classes de propreté</label>
+                                <div class="relative filter-dropdown">
+                                    <button onclick="toggleDropdown('stats-class')" id="btn-stats-class" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-sm font-medium rounded-lg p-2 flex justify-between items-center focus:ring-2 focus:ring-emerald-500">
+                                        <span class="truncate">Toutes Notes</span> <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                                    </button>
+                                    <div id="dropdown-stats-class" class="hidden absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                                </div>
+                            </div>
+                            <!-- Menu Adventices (Stats) -->
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Adventices</label>
+                                <div class="relative filter-dropdown">
+                                    <button onclick="toggleDropdown('stats-weed')" id="btn-stats-weed" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-sm font-medium rounded-lg p-2 flex justify-between items-center focus:ring-2 focus:ring-emerald-500">
+                                        <span class="truncate">Toutes Adventices</span> <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                                    </button>
+                                    <div id="dropdown-stats-weed" class="hidden absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-56 overflow-y-auto custom-scrollbar"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Répartition par Département -->
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                        <h2 class="text-base font-bold text-gray-700 mb-3"><i class="fas fa-map-marker-alt text-indigo-500 mr-2"></i>Parcelles par département</h2>
+                        <div id="stats-dept-details" class="w-full space-y-2 grid grid-cols-1 gap-1.5 max-h-60 overflow-y-auto pr-1 custom-scrollbar"></div>
+                    </div>
+                </div>
+
+                <!-- Section Droite : Graphiques Classes & Adventices -->
+                <div class="w-full md:w-2/3 flex flex-col gap-6">
+                    <!-- 1. Graphique des classes de salissement -->
+                    <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center md:items-start">
+                        <h2 id="pie-chart-title" class="text-lg font-bold text-gray-700 mb-4 w-full text-left"><i class="fas fa-chart-pie mr-2 text-emerald-600"></i>Répartition par classe de salissement</h2>
+                        <div class="flex flex-col md:flex-row w-full gap-6 items-center">
+                            <div class="w-full max-w-[230px] aspect-square relative flex-shrink-0">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                            <div class="w-full flex-grow flex flex-col gap-3">
+                                <div id="stats-summary" class="text-sm bg-emerald-50 text-emerald-800 p-3 rounded-lg border border-emerald-100 font-bold w-full">
+                                    Total des parcelles affichées : 0
+                                </div>
+                                <div id="stats-details" class="w-full space-y-2 grid grid-cols-1 gap-2"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Statistiques des Adventices (sur parcelles avec présence d'adventices) -->
+                    <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
+                            <h2 class="text-lg font-bold text-gray-700"><i class="fas fa-leaf text-amber-600 mr-2"></i>Fréquence des adventices</h2>
+                            <span id="weeds-stats-badge" class="text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 rounded-full">
+                                Sur 0 parcelle(s) avec adventices
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-4">
+                            Pourcentage des parcelles (parmi celles ayant une présence d'adventices) où chaque espèce est observée :
+                        </p>
+                        <!-- Détails avec barres de progression -->
+                        <div id="stats-weeds-details" class="w-full grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Navigation de bas de page -->
+        <nav class="bg-white border-t border-gray-200 w-full z-50 flex justify-around items-center h-16 flex-shrink-0 pb-safe md:h-20">
+            <button onclick="switchTab('releve')" id="nav-releve" class="nav-btn flex-1 flex flex-col items-center justify-center h-full text-emerald-700 font-bold">
+                <i class="fas fa-pen-to-square text-xl mb-1"></i>
+                <span class="text-[10px] md:text-xs uppercase tracking-wider">Saisie</span>
+            </button>
+            <button onclick="switchTab('carte')" id="nav-carte" class="nav-btn flex-1 flex flex-col items-center justify-center h-full text-gray-400 hover:text-emerald-600 transition-colors">
+                <i class="fas fa-map-marked-alt text-xl mb-1"></i>
+                <span class="text-[10px] md:text-xs uppercase tracking-wider">Carte & Export</span>
+            </button>
+            <button onclick="switchTab('stats')" id="nav-stats" class="nav-btn flex-1 flex flex-col items-center justify-center h-full text-gray-400 hover:text-emerald-600 transition-colors">
+                <i class="fas fa-chart-pie text-xl mb-1"></i>
+                <span class="text-[10px] md:text-xs uppercase tracking-wider">Statistiques</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- MODALE DE SÉLECTION DES ADVENTICES (Classes Satisfaisant, Moyen, Insuffisant) -->
+    <div id="weeds-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-[200] hidden flex items-end sm:items-center justify-center p-0 sm:p-4 print-hide">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[90dvh] flex flex-col overflow-hidden animate-fade-in">
+            <!-- En-tête de la modale -->
+            <div id="weeds-modal-header" class="p-4 text-white flex justify-between items-center">
+                <div>
+                    <h3 id="weeds-modal-title" class="text-lg font-black">Sélection des adventices</h3>
+                    <p class="text-xs opacity-90 flex items-center gap-1 mt-0.5">
+                        <i class="fas fa-map-pin"></i> Position GPS figée au clic &bull; Choix multiple
+                    </p>
+                </div>
+                <button onclick="closeWeedsModal()" class="w-8 h-8 rounded-full bg-black/20 hover:bg-black/30 flex items-center justify-center text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Grille de boutons des 10 adventices -->
+            <div class="p-4 overflow-y-auto grid grid-cols-2 gap-2.5 bg-gray-50" id="weeds-buttons-container">
+                <!-- Généré dynamiquement par JS -->
+            </div>
+
+            <!-- Pied de modale : Actions -->
+            <div class="p-4 bg-white border-t border-gray-200 flex gap-3 pb-safe">
+                <button onclick="closeWeedsModal()" class="py-3 px-4 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition text-sm">
+                    Annuler
+                </button>
+                <button onclick="confirmWeedsRecord()" id="btn-confirm-weeds" class="btn-press flex-1 py-3 px-4 rounded-xl font-black bg-emerald-600 text-white hover:bg-emerald-700 shadow-md transition text-sm flex items-center justify-center gap-2">
+                    <i class="fas fa-check"></i> Enregistrer la parcelle
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed bottom-20 left-0 right-0 z-[250] flex justify-center px-4">
+        <div id="toast-content" class="bg-gray-900 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 font-medium text-sm">
+            <i id="toast-icon" class="fas fa-check-circle text-green-400"></i>
+            <span id="toast-message">Action réussie</span>
+        </div>
+    </div>
+
+    <!-- Modale de confirmation de suppression -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[200] hidden flex items-center justify-center p-4 print-hide">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Effacer les données ?</h3>
+            <p class="text-gray-600 text-sm mb-6">Êtes-vous sûr de vouloir supprimer tous les relevés de salissement de cet appareil ? Cette action est irréversible.</p>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">Annuler</button>
+                <button onclick="clearData()" class="flex-1 py-2.5 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700">Supprimer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Constantes Métier : Classes de Salissement & Adventices ---
+        const classConfig = {
+            0: { id: 0, label: 'Très Satisfaisant', note: '10 - 9', hex: '#166534', tailwind: 'bg-[#166534]', headerBg: 'bg-[#166534] text-white' },
+            1: { id: 1, label: 'Satisfaisant', note: '8 - 7', hex: '#86efac', tailwind: 'bg-[#86efac]', headerBg: 'bg-emerald-600 text-white' },
+            2: { id: 2, label: 'Moyen', note: '6 - 5', hex: '#facc15', tailwind: 'bg-[#facc15]', headerBg: 'bg-amber-500 text-gray-900' },
+            3: { id: 3, label: 'Insuffisant', note: '< 5', hex: '#dc2626', tailwind: 'bg-[#dc2626]', headerBg: 'bg-[#dc2626] text-white' }
+        };
+
+        const WEEDS_LIST = [
+            'Chénopode',
+            'Ombellifère',
+            'Mercuriale',
+            'Matricaire',
+            'Graminées',
+            'Colza',
+            'Chardons',
+            'Laiterons',
+            'Amaranthe',
+            'Rumex'
+        ];
+
+        // --- Variables Globales ---
+        const STORAGE_KEY = 'salissement_betteraves_records';
+        let currentPosition = null;
+        let watchId = null;
+        let records = [];
+        let map = null;
+        let mapLayerGroup = null;
+        let deptGeoJsonLayer = null;
+        let chartInstance = null;
+        let userMarker = null; 
+        let accuracyCircle = null; 
+        let routingControl = null;
+        let isRouteMode = false;
+        let routeWaypoints = [];
+        let followGPS = true;
+        let mapInitialCentered = false;
+        let wakeLock = null;
+
+        // État temporaire lors de l'ouverture de la modale d'adventices (fige le point GPS au clic)
+        let pendingRecordData = null;
+        let currentSelectedWeeds = new Set();
+
+        // État des filtres multiples
+        let selectedDepts = new Set();
+        let selectedClasses = new Set();
+        let selectedWeedsFilter = new Set();
+
+        window.onload = () => {
+            loadRecords();
+            startGPS();
+            initFilters();
+            initWakeLock();
+        };
+
+        // --- Gestion Anti-Veille (Screen Wake Lock API) ---
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    if (!wakeLock) {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        const badge = document.getElementById('wakelock-badge');
+                        if (badge) badge.classList.remove('hidden');
+
+                        wakeLock.addEventListener('release', () => {
+                            wakeLock = null;
+                            if (badge) badge.classList.add('hidden');
+                        });
+                    }
+                } catch (err) {
+                    console.log('Wake Lock en attente d\'interaction:', err.message);
+                }
+            }
+        }
+
+        function initWakeLock() {
+            requestWakeLock();
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') requestWakeLock();
+            });
+            ['click', 'touchstart'].forEach(evt => {
+                document.addEventListener(evt, () => {
+                    if (!wakeLock && document.visibilityState === 'visible') requestWakeLock();
+                }, { passive: true });
+            });
+        }
+
+        function switchTab(tabName) {
+            ['releve', 'carte', 'stats'].forEach(name => {
+                document.getElementById(`view-${name}`).classList.add('hidden');
+                document.getElementById(`nav-${name}`).className = 'nav-btn flex-1 flex flex-col items-center justify-center h-full text-gray-400 hover:text-emerald-600 transition-colors';
+            });
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+            document.getElementById(`nav-${tabName}`).className = 'nav-btn flex-1 flex flex-col items-center justify-center h-full text-emerald-700 font-bold transition-colors';
+            document.querySelectorAll('[id^="dropdown-"]').forEach(el => el.classList.add('hidden'));
+            if (tabName === 'carte') initOrUpdateMap();
+            else if (tabName === 'stats') { initFilters(); updateStats(); }
+        }
+
+        // --- Gestion GPS & Suivi du Point Bleu ---
+        function startGPS() {
+            if ("geolocation" in navigator) {
+                watchId = navigator.geolocation.watchPosition(
+                    updatePosition,
+                    handleGPSError,
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+                );
+            } else {
+                setGPSStatus('error', 'GPS non supporté.');
+            }
+        }
+
+        function setFollowGPSUI(active) {
+            followGPS = active;
+            const btn = document.getElementById('btn-follow-gps');
+            if (!btn) return;
+            if (active) {
+                btn.className = 'bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition font-medium shadow-sm';
+            } else {
+                btn.className = 'bg-gray-100 text-gray-600 px-3 py-1.5 rounded-md hover:bg-gray-200 transition font-medium shadow-sm';
+            }
+        }
+
+        function enableFollowGPS() {
+            setFollowGPSUI(true);
+            if (currentPosition && map) {
+                const latlng = [currentPosition.coords.latitude, currentPosition.coords.longitude];
+                if (map.getZoom() < 7) {
+                    map.setView(latlng, 12, { animate: true });
+                } else {
+                    map.panTo(latlng, { animate: true });
+                }
+                showToast("Suivi du point bleu activé (zoom libre)");
+            } else {
+                showToast("En attente du signal GPS...", "warning");
+            }
+        }
+
+        function updateUserMarkerOnMap(position) {
+            if (!map || !position) return;
+            const accuracy = Math.round(position.coords.accuracy);
+            const latlng = [position.coords.latitude, position.coords.longitude];
+            if (!userMarker) {
+                accuracyCircle = L.circle(latlng, {
+                    radius: accuracy, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.12, weight: 1, interactive: false
+                }).addTo(map);
+                userMarker = L.circleMarker(latlng, {
+                    radius: 6, fillColor: '#3b82f6', color: '#ffffff', weight: 2, opacity: 1, fillOpacity: 1, interactive: false
+                }).addTo(map);
+            } else {
+                userMarker.setLatLng(latlng);
+                accuracyCircle.setLatLng(latlng);
+                accuracyCircle.setRadius(accuracy);
+            }
+            if (accuracyCircle) accuracyCircle.bringToBack();
+            if (mapLayerGroup) mapLayerGroup.bringToFront();
+            if (userMarker) userMarker.bringToFront();
+        }
+
+        function updatePosition(position) {
+            currentPosition = position;
+            const accuracy = Math.round(position.coords.accuracy);
+            let status = accuracy > 20 ? 'warning' : 'good';
+            setGPSStatus(status, 'GPS Prêt', accuracy);
+
+            if (map) {
+                updateUserMarkerOnMap(position);
+                const latlng = [position.coords.latitude, position.coords.longitude];
+                const isMapVisible = !document.getElementById('view-carte').classList.contains('hidden');
+                if (followGPS && isMapVisible) {
+                    map.panTo(latlng, { animate: true });
+                }
+            }
+        }
+
+        function handleGPSError(error) {
+            let msg = 'Erreur GPS inconnue';
+            switch(error.code) {
+                case error.PERMISSION_DENIED: msg = 'Autorisation GPS refusée'; break;
+                case error.POSITION_UNAVAILABLE: msg = 'Signal introuvable'; break;
+                case error.TIMEOUT: msg = 'Délai GPS dépassé'; break;
+            }
+            setGPSStatus('error', msg);
+            currentPosition = null;
+        }
+
+        function setGPSStatus(status, message, accuracy = null) {
+            const gpsStatusDiv = document.getElementById('gps-status');
+            const gpsIcon = document.getElementById('gps-icon');
+            const gpsText = document.getElementById('gps-text');
+            const gpsAccuracy = document.getElementById('gps-accuracy');
+            gpsText.innerText = message;
+            gpsIcon.className = 'fas mr-2 ';
+            gpsStatusDiv.className = 'px-4 py-2 text-sm flex items-center justify-between border-b transition-colors duration-300 flex-shrink-0 z-50 ';
+            gpsAccuracy.classList.remove('hidden');
+            if (status === 'good') {
+                gpsStatusDiv.classList.add('bg-green-100', 'border-green-200', 'text-green-800');
+                gpsIcon.classList.add('fa-satellite-dish');
+                gpsAccuracy.innerText = `±${accuracy}m`;
+                gpsAccuracy.className = 'text-xs font-bold bg-green-200 text-green-800 px-2 py-1 rounded-full';
+            } else if (status === 'warning') {
+                gpsStatusDiv.classList.add('bg-yellow-100', 'border-yellow-200', 'text-yellow-800');
+                gpsIcon.classList.add('fa-satellite-dish');
+                gpsAccuracy.innerText = `±${accuracy}m`;
+                gpsAccuracy.className = 'text-xs font-bold bg-yellow-200 text-yellow-900 px-2 py-1 rounded-full';
+            } else {
+                gpsStatusDiv.classList.add('bg-red-100', 'border-red-200', 'text-red-800');
+                gpsIcon.classList.add('fa-exclamation-triangle');
+                gpsAccuracy.classList.add('hidden');
+            }
+        }
+
+        let toastTimeout;
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            const toastMessage = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+            toastMessage.innerText = message;
+            toastIcon.className = type === 'success' ? 'fas fa-check-circle text-green-400' : 
+                                 (type === 'info' ? 'fas fa-spinner fa-spin text-blue-400' : 'fas fa-exclamation-triangle text-amber-400');
+            toastContainer.classList.add('show');
+            clearTimeout(toastTimeout);
+            const delay = type === 'info' ? 10000 : 3000;
+            toastTimeout = setTimeout(() => { toastContainer.classList.remove('show'); }, delay);
+        }
+
+        // --- Saisie des Relevés & Modale Adventices ---
+        function handleClassClick(classId) {
+            if (!currentPosition) {
+                showToast("Attendez le signal GPS.", "error");
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                return;
+            }
+
+            const cfg = classConfig[classId];
+            // Figer immédiatement les coordonnées GPS au moment où l'on passe devant la parcelle
+            const capturedData = {
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                lat: currentPosition.coords.latitude.toFixed(6),
+                lng: currentPosition.coords.longitude.toFixed(6),
+                accuracy: Math.round(currentPosition.coords.accuracy),
+                classId: classId,
+                className: `${cfg.label} (${cfg.note})`,
+                note: cfg.note,
+                weeds: [],
+                department: "Calcul..."
+            };
+
+            // Si Très Satisfaisant (10 - 9) : enregistrement direct sans ouvrir la modale
+            if (classId === 0) {
+                finalizeRecord(capturedData);
+            } else {
+                // Pour Satisfaisant, Moyen, Insuffisant : ouvrir la sélection d'adventices
+                pendingRecordData = capturedData;
+                currentSelectedWeeds.clear();
+                openWeedsModal(classId);
+            }
+        }
+
+        function openWeedsModal(classId) {
+            const cfg = classConfig[classId];
+            const modal = document.getElementById('weeds-modal');
+            const header = document.getElementById('weeds-modal-header');
+            const title = document.getElementById('weeds-modal-title');
+
+            header.className = `p-4 flex justify-between items-center ${cfg.headerBg}`;
+            title.innerText = `${cfg.label} (${cfg.note}) — Adventices`;
+
+            renderWeedsModalButtons();
+            modal.classList.remove('hidden');
+            if (navigator.vibrate) navigator.vibrate(40);
+        }
+
+        function renderWeedsModalButtons() {
+            const container = document.getElementById('weeds-buttons-container');
+            container.innerHTML = '';
+            WEEDS_LIST.forEach(weed => {
+                const isSelected = currentSelectedWeeds.has(weed);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.onclick = () => toggleWeedInModal(weed);
+                btn.className = isSelected
+                    ? 'btn-press p-3.5 rounded-xl font-bold text-sm bg-emerald-700 text-white shadow-md border-2 border-emerald-800 flex items-center justify-between transition'
+                    : 'btn-press p-3.5 rounded-xl font-semibold text-sm bg-white text-gray-800 shadow-sm border-2 border-gray-200 hover:border-emerald-400 flex items-center justify-between transition';
+                btn.innerHTML = `
+                    <span class="truncate pr-1">${weed}</span>
+                    <i class="fas ${isSelected ? 'fa-check-circle text-emerald-200' : 'fa-plus-circle text-gray-300'} text-base"></i>
+                `;
+                container.appendChild(btn);
+            });
+
+            const confirmBtn = document.getElementById('btn-confirm-weeds');
+            const count = currentSelectedWeeds.size;
+            confirmBtn.innerHTML = count > 0
+                ? `<i class="fas fa-check"></i> Enregistrer (${count} adventice${count > 1 ? 's' : ''})`
+                : `<i class="fas fa-check"></i> Enregistrer sans adventice spécifiée`;
+        }
+
+        function toggleWeedInModal(weed) {
+            if (currentSelectedWeeds.has(weed)) {
+                currentSelectedWeeds.delete(weed);
+            } else {
+                currentSelectedWeeds.add(weed);
+            }
+            if (navigator.vibrate) navigator.vibrate(25);
+            renderWeedsModalButtons();
+        }
+
+        function closeWeedsModal() {
+            document.getElementById('weeds-modal').classList.add('hidden');
+            pendingRecordData = null;
+            currentSelectedWeeds.clear();
+        }
+
+        function confirmWeedsRecord() {
+            if (!pendingRecordData) return;
+            pendingRecordData.weeds = Array.from(currentSelectedWeeds);
+            const recordToSave = pendingRecordData;
+            closeWeedsModal();
+            finalizeRecord(recordToSave);
+        }
+
+        function finalizeRecord(newRecord) {
+            records.unshift(newRecord);
+            saveRecords();
+            updateHistoryUI();
+            initFilters();
+            if (map) updateMapMarkers();
+
+            const cfg = classConfig[newRecord.classId];
+            const weedsSuffix = newRecord.weeds && newRecord.weeds.length > 0
+                ? ` (${newRecord.weeds.length} adv.)`
+                : '';
+            showToast(`${cfg.label} [${cfg.note}] enregistré${weedsSuffix} !`);
+            if (navigator.vibrate) navigator.vibrate(100);
+
+            // Recherche du département via l'API Géo
+            fetch(`https://geo.api.gouv.fr/communes?lat=${newRecord.lat}&lon=${newRecord.lng}&fields=codeDepartement`)
+                .then(response => response.json())
+                .then(data => {
+                    const index = records.findIndex(r => r.id === newRecord.id);
+                    if (index !== -1) {
+                        if (data && data.length > 0 && data[0].codeDepartement) {
+                            records[index].department = data[0].codeDepartement;
+                        } else {
+                            records[index].department = "Hors FR";
+                        }
+                        saveRecords();
+                        updateHistoryUI();
+                        initFilters();
+                        if (map) updateMapMarkers();
+                    }
+                })
+                .catch(() => {
+                    const index = records.findIndex(r => r.id === newRecord.id);
+                    if (index !== -1) {
+                        records[index].department = "Inconnu";
+                        saveRecords();
+                        if (map) updateMapMarkers();
+                    }
+                });
+        }
+
+        function saveRecords() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+        }
+
+        function loadRecords() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    records = JSON.parse(saved).map(r => ({
+                        ...r,
+                        weeds: Array.isArray(r.weeds) ? r.weeds : []
+                    }));
+                } catch(e) { records = []; }
+            }
+            updateHistoryUI();
+        }
+
+        function updateHistoryUI() {
+            const historyList = document.getElementById('history-list');
+            document.getElementById('record-count').innerText = records.length;
+            historyList.innerHTML = '';
+            if (records.length === 0) {
+                historyList.innerHTML = '<li class="p-4 text-center text-gray-500 text-sm h-full flex items-center justify-center">Aucun relevé pour le moment.</li>';
+                return;
+            }
+            const displayRecords = records.slice(0, 50);
+            displayRecords.forEach(rec => {
+                const date = new Date(rec.timestamp);
+                const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second:'2-digit' });
+                const cfg = classConfig[rec.classId] || classConfig[0];
+                const weedsBadges = (rec.weeds && rec.weeds.length > 0)
+                    ? `<div class="flex flex-wrap gap-1 mt-1">${rec.weeds.map(w => `<span class="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-medium">${w}</span>`).join('')}</div>`
+                    : '';
+
+                const li = document.createElement('li');
+                li.className = 'p-3 flex items-start justify-between hover:bg-gray-50 transition';
+                li.innerHTML = `
+                    <div class="flex items-start gap-3 overflow-hidden">
+                        <div class="w-4 h-4 rounded-full ${cfg.tailwind} flex-shrink-0 shadow-sm border border-black/10 mt-1"></div>
+                        <div class="flex flex-col overflow-hidden">
+                            <span class="font-bold text-gray-800 text-sm truncate">
+                                ${cfg.label} <span class="text-xs font-semibold text-emerald-700">[${cfg.note}]</span>
+                                <span class="text-xs font-normal text-gray-500">(${rec.department})</span>
+                            </span>
+                            ${weedsBadges}
+                            <span class="text-[11px] text-gray-400 truncate mt-0.5">${rec.lat}, ${rec.lng}</span>
+                        </div>
+                    </div>
+                    <span class="text-xs font-mono text-gray-400 ml-2 flex-shrink-0">${timeStr}</span>
+                `;
+                historyList.appendChild(li);
+            });
+        }
+
+        // --- Interface de Filtres Multiples (Départements, Classes, Adventices) ---
+        function toggleDropdown(id) {
+            const dropdown = document.getElementById(`dropdown-${id}`);
+            const isHidden = dropdown.classList.contains('hidden');
+            document.querySelectorAll('[id^="dropdown-"]').forEach(el => el.classList.add('hidden'));
+            if (isHidden) dropdown.classList.remove('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.filter-dropdown')) {
+                document.querySelectorAll('[id^="dropdown-"]').forEach(el => el.classList.add('hidden'));
+            }
+        });
+
+        function toggleFilter(type, value) {
+            let set = type === 'dept' ? selectedDepts : (type === 'class' ? selectedClasses : selectedWeedsFilter);
+            if (value === 'all') {
+                set.clear();
+            } else {
+                if (set.has(value)) set.delete(value);
+                else set.add(value);
+            }
+            renderCheckboxesUI();
+            if (map) {
+                updateMapMarkers();
+                if (type === 'dept') {
+                    updateDepartmentBorders();
+                }
+            }
+            updateStats();
+        }
+
+        function updateFilterLabels() {
+            ['map', 'stats'].forEach(view => {
+                const btnDept = document.getElementById(`btn-${view}-dept`);
+                if (btnDept) {
+                    const spanDept = btnDept.querySelector('span');
+                    if (selectedDepts.size === 0) spanDept.innerText = "Tous Depts";
+                    else if (selectedDepts.size === 1) spanDept.innerText = `Dept ${Array.from(selectedDepts)[0]}`;
+                    else spanDept.innerText = `${selectedDepts.size} Depts`;
+                }
+                const btnClass = document.getElementById(`btn-${view}-class`);
+                if (btnClass) {
+                    const spanClass = btnClass.querySelector('span');
+                    if (selectedClasses.size === 0) spanClass.innerText = "Toutes Notes";
+                    else if (selectedClasses.size === 1) {
+                        const cId = Array.from(selectedClasses)[0];
+                        spanClass.innerText = `${classConfig[cId].label}`;
+                    } else spanClass.innerText = `${selectedClasses.size} Notes`;
+                }
+                const btnWeed = document.getElementById(`btn-${view}-weed`);
+                if (btnWeed) {
+                    const spanWeed = btnWeed.querySelector('span');
+                    if (selectedWeedsFilter.size === 0) spanWeed.innerText = view === 'map' ? "Adventices" : "Toutes Adventices";
+                    else if (selectedWeedsFilter.size === 1) spanWeed.innerText = Array.from(selectedWeedsFilter)[0];
+                    else spanWeed.innerText = `${selectedWeedsFilter.size} Adventices`;
+                }
+            });
+        }
+
+        function renderCheckboxesUI() {
+            const deptsList = Array.from(new Set(records.map(r => r.department).filter(d => d && d !== "Calcul..."))).sort();
+            const classesList = [0, 1, 2, 3];
+
+            ['map', 'stats'].forEach(view => {
+                const deptContainer = document.getElementById(`dropdown-${view}-dept`);
+                const classContainer = document.getElementById(`dropdown-${view}-class`);
+                const weedContainer = document.getElementById(`dropdown-${view}-weed`);
+                if (!deptContainer || !classContainer || !weedContainer) return;
+
+                let deptHtml = `
+                    <div class="p-2 hover:bg-emerald-50 cursor-pointer flex items-center gap-2 text-sm border-b border-gray-100" onclick="toggleFilter('dept', 'all')">
+                        <input type="checkbox" ${selectedDepts.size === 0 ? 'checked' : ''} class="w-4 h-4 rounded text-emerald-600 pointer-events-none">
+                        <span class="${selectedDepts.size === 0 ? 'font-bold text-emerald-700' : 'text-gray-700'}">Tous les départements</span>
+                    </div>`;
+                deptsList.forEach(d => {
+                    const checked = selectedDepts.has(d) ? 'checked' : '';
+                    const bold = checked ? 'font-bold text-gray-900' : 'text-gray-600';
+                    deptHtml += `
+                        <div class="p-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2 text-sm" onclick="toggleFilter('dept', '${d}')">
+                            <input type="checkbox" ${checked} class="w-4 h-4 rounded text-emerald-600 pointer-events-none">
+                            <span class="${bold}">Département ${d}</span>
+                        </div>`;
+                });
+                deptContainer.innerHTML = deptHtml;
+
+                let classHtml = `
+                    <div class="p-2 hover:bg-emerald-50 cursor-pointer flex items-center gap-2 text-sm border-b border-gray-100" onclick="toggleFilter('class', 'all')">
+                        <input type="checkbox" ${selectedClasses.size === 0 ? 'checked' : ''} class="w-4 h-4 rounded text-emerald-600 pointer-events-none">
+                        <span class="${selectedClasses.size === 0 ? 'font-bold text-emerald-700' : 'text-gray-700'}">Toutes les classes</span>
+                    </div>`;
+                classesList.forEach(c => {
+                    const checked = selectedClasses.has(c.toString()) ? 'checked' : '';
+                    const bold = checked ? 'font-bold text-gray-900' : 'text-gray-600';
+                    const cfg = classConfig[c];
+                    const colorCircle = `<span class="w-3 h-3 rounded-full ${cfg.tailwind} border border-black/10 block flex-shrink-0"></span>`;
+                    classHtml += `
+                        <div class="p-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2 text-sm" onclick="toggleFilter('class', '${c}')">
+                            <input type="checkbox" ${checked} class="w-4 h-4 rounded text-emerald-600 pointer-events-none">
+                            ${colorCircle}
+                            <span class="${bold} truncate">${cfg.label} (${cfg.note})</span>
+                        </div>`;
+                });
+                classContainer.innerHTML = classHtml;
+
+                let weedHtml = `
+                    <div class="p-2 hover:bg-emerald-50 cursor-pointer flex items-center gap-2 text-sm border-b border-gray-100" onclick="toggleFilter('weed', 'all')">
+                        <input type="checkbox" ${selectedWeedsFilter.size === 0 ? 'checked' : ''} class="w-4 h-4 rounded text-emerald-600 pointer-events-none">
+                        <span class="${selectedWeedsFilter.size === 0 ? 'font-bold text-emerald-700' : 'text-gray-700'}">Toutes les adventices</span>
+                    </div>`;
+                WEEDS_LIST.forEach(w => {
+                    const checked = selectedWeedsFilter.has(w) ? 'checked' : '';
+                    const bold = checked ? 'font-bold text-gray-900' : 'text-gray-600';
+                    weedHtml += `
+                        <div class="p-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2 text-sm" onclick="toggleFilter('weed', '${w}')">
+                            <input type="checkbox" ${checked} class="w-4 h-4 rounded text-emerald-600 pointer-events-none">
+                            <span class="${bold} truncate">${w}</span>
+                        </div>`;
+                });
+                weedContainer.innerHTML = weedHtml;
+            });
+            updateFilterLabels();
+        }
+
+        function initFilters() {
+            renderCheckboxesUI();
+        }
+
+        function getFilteredRecords() {
+            return records.filter(r => {
+                let matchDept = (selectedDepts.size === 0) || selectedDepts.has(r.department);
+                let matchClass = (selectedClasses.size === 0) || selectedClasses.has(r.classId.toString());
+                let matchWeed = (selectedWeedsFilter.size === 0) || (Array.isArray(r.weeds) && r.weeds.some(w => selectedWeedsFilter.has(w)));
+                return matchDept && matchClass && matchWeed;
+            });
+        }
+
+        // --- Carte Leaflet et Capture d'Image ---
+        function initOrUpdateMap() {
+            if (!map) {
+                map = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([46.603354, 1.888334], 6);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    crossOrigin: true, 
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+                L.control.zoom({ position: 'bottomright' }).addTo(map);
+                mapLayerGroup = L.featureGroup().addTo(map);
+
+                map.on('dragstart', function() {
+                    if (followGPS) setFollowGPSUI(false);
+                });
+
+                map.on('click', function(e) {
+                    if (isRouteMode) addRoutePoint(e.latlng);
+                });
+            }
+
+            map.invalidateSize();
+            updateMapMarkers();
+
+            if (currentPosition) {
+                updateUserMarkerOnMap(currentPosition);
+            }
+
+            if (!mapInitialCentered) {
+                mapInitialCentered = true;
+                setFollowGPSUI(true);
+                const filtered = getFilteredRecords();
+                if (currentPosition && filtered.length > 0) {
+                    const latlng = [currentPosition.coords.latitude, currentPosition.coords.longitude];
+                    map.setView(latlng, 12, { animate: false });
+                } else if (currentPosition) {
+                    const latlng = [currentPosition.coords.latitude, currentPosition.coords.longitude];
+                    map.setView(latlng, 14, { animate: false });
+                } else if (filtered.length > 0) {
+                    map.fitBounds(mapLayerGroup.getBounds(), { padding: [40, 40], animate: false });
+                }
+            } else if (followGPS && currentPosition) {
+                const latlng = [currentPosition.coords.latitude, currentPosition.coords.longitude];
+                map.panTo(latlng, { animate: false });
+            }
+
+            setTimeout(() => {
+                if (map) {
+                    map.invalidateSize();
+                    updateMapMarkers();
+                }
+            }, 150);
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 400);
+        }
+
+        async function updateDepartmentBorders() {
+            if (!map) return;
+            if (deptGeoJsonLayer) {
+                map.removeLayer(deptGeoJsonLayer);
+                deptGeoJsonLayer = null;
+            }
+            if (selectedDepts.size > 0 && selectedDepts.size < 15) {
+                setFollowGPSUI(false);
+                deptGeoJsonLayer = L.featureGroup().addTo(map);
+                let bounds = L.latLngBounds();
+                let hasBounds = false;
+                for (let dept of selectedDepts) {
+                    try {
+                        const response = await fetch(`https://geo.api.gouv.fr/departements/${dept}?format=geojson`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            const layer = L.geoJSON(data, {
+                                style: { 
+                                    color: '#059669',
+                                    weight: 3, 
+                                    opacity: 0.8, 
+                                    fillOpacity: 0.05, 
+                                    dashArray: '6, 6'
+                                },
+                                interactive: false
+                            });
+                            deptGeoJsonLayer.addLayer(layer);
+                            bounds.extend(layer.getBounds());
+                            hasBounds = true;
+                        }
+                    } catch(e) { console.error("Erreur chargement frontières Dept", dept); }
+                }
+                if (deptGeoJsonLayer) deptGeoJsonLayer.bringToBack();
+                if (mapLayerGroup) mapLayerGroup.bringToFront();
+                if (userMarker) userMarker.bringToFront();
+                if (hasBounds) {
+                    map.fitBounds(bounds, { padding: [20, 20], animate: true, duration: 0.5 });
+                } else {
+                    centerMapOnPoints();
+                }
+            }
+        }
+
+        function updateMapMarkers() {
+            if (!mapLayerGroup) return;
+            mapLayerGroup.clearLayers();
+            let count = 0;
+            const filteredRecords = getFilteredRecords();
+            filteredRecords.forEach(rec => {
+                const lat = parseFloat(rec.lat);
+                const lng = parseFloat(rec.lng);
+                if (isNaN(lat) || isNaN(lng)) return;
+                const cfg = classConfig[rec.classId] || classConfig[0];
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 7, fillColor: cfg.hex, color: '#ffffff', weight: 1.5, opacity: 1, fillOpacity: 0.95
+                });
+                const time = new Date(rec.timestamp).toLocaleTimeString('fr-FR');
+                const weedsText = (rec.weeds && rec.weeds.length > 0)
+                    ? `<br><b>Adventices :</b> ${rec.weeds.join(', ')}`
+                    : '';
+                marker.bindPopup(`<b>${cfg.label} (${cfg.note})</b><br>Dept: ${rec.department}<br>Heure: ${time}${weedsText}`);
+                mapLayerGroup.addLayer(marker);
+                count++;
+            });
+            mapLayerGroup.bringToFront();
+            if (userMarker) userMarker.bringToFront();
+            document.getElementById('map-point-count').innerText = count;
+        }
+
+        function centerMapOnPoints() {
+            if (deptGeoJsonLayer && selectedDepts.size > 0 && deptGeoJsonLayer.getLayers().length > 0) {
+                setFollowGPSUI(false);
+                map.fitBounds(deptGeoJsonLayer.getBounds(), { padding: [30, 30], animate: true });
+            } 
+            else if (mapLayerGroup && getFilteredRecords().length > 0) {
+                setFollowGPSUI(false);
+                const bounds = L.latLngBounds(mapLayerGroup.getBounds().getSouthWest(), mapLayerGroup.getBounds().getNorthEast());
+                if (currentPosition) {
+                    bounds.extend([currentPosition.coords.latitude, currentPosition.coords.longitude]);
+                }
+                map.fitBounds(bounds, { padding: [40, 40], animate: true });
+            } else if (currentPosition) {
+                enableFollowGPS();
+            }
+        }
+
+        // --- GESTION DES ITINÉRAIRES ---
+        function toggleRouteMode() {
+            isRouteMode = !isRouteMode;
+            const btnRoute = document.getElementById('btn-route');
+            const routePanel = document.getElementById('route-panel');
+            if (isRouteMode) {
+                btnRoute.classList.replace('bg-purple-100', 'bg-purple-600');
+                btnRoute.classList.replace('text-purple-700', 'text-white');
+                if (currentPosition && routeWaypoints.length === 0) {
+                    routeWaypoints = [L.latLng(currentPosition.coords.latitude, currentPosition.coords.longitude)];
+                }
+                if (routeWaypoints.length >= 2) {
+                    routePanel.classList.remove('hidden');
+                }
+                showToast("Mode Exploration : Cliquez sur la carte pour tracer.", "info");
+            } else {
+                btnRoute.classList.replace('bg-purple-600', 'bg-purple-100');
+                btnRoute.classList.replace('text-white', 'text-purple-700');
+                routePanel.classList.add('hidden');
+                showToast("Mode Exploration désactivé");
+            }
+        }
+
+        function addRoutePoint(latlng) {
+            if (routeWaypoints.length === 0 && currentPosition) {
+                routeWaypoints.push(L.latLng(currentPosition.coords.latitude, currentPosition.coords.longitude));
+            }
+            routeWaypoints.push(latlng);
+            updateRoutingControl();
+        }
+
+        function undoRoutePoint() {
+            if (routeWaypoints.length > 1) {
+                routeWaypoints.pop();
+                updateRoutingControl();
+            }
+            if (routeWaypoints.length < 2) {
+                document.getElementById('route-panel').classList.add('hidden');
+            }
+        }
+
+        function clearRoute() {
+            routeWaypoints = currentPosition ? [L.latLng(currentPosition.coords.latitude, currentPosition.coords.longitude)] : [];
+            if (routingControl) {
+                routingControl.setWaypoints([]);
+                map.removeControl(routingControl);
+                routingControl = null;
+            }
+            document.getElementById('route-info').innerHTML = '';
+            document.getElementById('route-panel').classList.add('hidden');
+        }
+
+        function updateRoutingControl() {
+            const routePanel = document.getElementById('route-panel');
+            if (routeWaypoints.length < 2) {
+                if (routingControl) {
+                    routingControl.setWaypoints([]);
+                    map.removeControl(routingControl);
+                    routingControl = null;
+                }
+                document.getElementById('route-info').innerHTML = '';
+                routePanel.classList.add('hidden');
+                return;
+            }
+
+            routePanel.classList.remove('hidden');
+            document.getElementById('route-info').innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Calcul en cours...`;
+
+            if (routingControl) {
+                routingControl.setWaypoints(routeWaypoints);
+            } else {
+                routingControl = L.Routing.control({
+                    waypoints: routeWaypoints,
+                    routeWhileDragging: true,
+                    language: 'fr',
+                    show: false,
+                    addWaypoints: true,
+                    router: L.Routing.osrmv1({
+                        language: 'fr',
+                        profile: 'driving'
+                    }),
+                    lineOptions: {
+                        styles: [{color: '#8b5cf6', opacity: 0.9, weight: 6, dashArray: '10, 10'}],
+                        extendToWaypoints: true,
+                        missingRouteTolerance: 0
+                    },
+                    createMarker: function(i, wp, nWps) {
+                        if (i === 0) return null;
+                        const isLast = (i === nWps - 1);
+                        return L.marker(wp.latLng, {
+                            draggable: true,
+                            icon: L.divIcon({
+                                className: isLast 
+                                    ? 'bg-red-500 w-4 h-4 rounded-full border-2 border-white shadow-[0_0_10px_rgba(220,38,38,0.8)]' 
+                                    : 'bg-purple-500 w-3 h-3 rounded-full border border-white opacity-90 shadow-sm',
+                                iconSize: isLast ? [16, 16] : [12, 12]
+                            })
+                        }).bindPopup(isLast ? "<b>Arrivée</b>" : "<b>Étape d'exploration</b>");
+                    }
+                }).addTo(map);
+
+                routingControl.on('routesfound', function(e) {
+                    if (routeWaypoints.length < 2) {
+                        routePanel.classList.add('hidden');
+                        return;
+                    }
+                    const routes = e.routes;
+                    const summary = routes[0].summary;
+                    const timeMinutes = Math.round(summary.totalTime / 60);
+                    const hours = Math.floor(timeMinutes / 60);
+                    const mins = timeMinutes % 60;
+                    const timeStr = hours > 0 ? `${hours}h${mins.toString().padStart(2, '0')}` : `${mins} min`;
+                    const distKm = (summary.totalDistance / 1000).toFixed(1);
+                    document.getElementById('route-info').innerHTML = `🚗 <b>${distKm} km</b> &nbsp;&bull;&nbsp; ⏳ <b>${timeStr}</b>`;
+                });
+
+                routingControl.on('waypointschanged', function(e) {
+                    routeWaypoints = e.waypoints.map(wp => wp.latLng).filter(ll => ll !== null);
+                    if (routeWaypoints.length < 2) {
+                        routePanel.classList.add('hidden');
+                    }
+                });
+
+                routingControl.on('routingerror', function() {
+                    if (routeWaypoints.length < 2) return;
+                    document.getElementById('route-info').innerHTML = `<span class="text-red-500"><i class="fas fa-exclamation-triangle mr-1"></i> Erreur de tracé</span>`;
+                    showToast("Impossible de tracer une route sûre jusqu'à ce point.", "error");
+                });
+            }
+        }
+
+        // Capture de la carte en image (PNG)
+        async function exportMapImage() {
+            const mapContainer = document.getElementById('view-carte');
+            const uiElements = mapContainer.querySelectorAll('.print-hide, .leaflet-control-container');
+            uiElements.forEach(el => el.style.display = 'none');
+            showToast("Capture de la carte en cours...", "info");
+            await new Promise(resolve => setTimeout(resolve, 100));
+            try {
+                const canvas = await html2canvas(mapContainer, {
+                    useCORS: true,
+                    allowTaint: false,
+                    backgroundColor: '#e5e5e5',
+                    scale: 2
+                });
+                const link = document.createElement('a');
+                const safeDate = new Date().toISOString().slice(0, 10);
+                link.download = `Carte_Salissement_${safeDate}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast("Image capturée avec succès !");
+            } catch(error) {
+                console.error("Erreur html2canvas :", error);
+                showToast("Erreur lors de la capture de la carte.", "error");
+            } finally {
+                uiElements.forEach(el => el.style.display = '');
+            }
+        }
+
+        // --- Statistiques : Classes, Adventices & Départements ---
+        function updateStats() {
+            const filteredRecords = getFilteredRecords();
+            let counts = {0: 0, 1: 0, 2: 0, 3: 0};
+            let deptCounts = {};
+            let weedCounts = {};
+            WEEDS_LIST.forEach(w => weedCounts[w] = 0);
+
+            // Parcelles ayant une présence d'adventices (note < 9 ou adventices cochées)
+            let infestedParcelsCount = 0;
+
+            filteredRecords.forEach(r => {
+                if (counts[r.classId] !== undefined) counts[r.classId]++;
+                let dept = r.department || "Inconnu";
+                if (dept !== "Calcul...") {
+                    deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+                }
+
+                const hasWeeds = (Array.isArray(r.weeds) && r.weeds.length > 0) || r.classId > 0;
+                if (hasWeeds) {
+                    infestedParcelsCount++;
+                    if (Array.isArray(r.weeds)) {
+                        r.weeds.forEach(w => {
+                            if (weedCounts[w] !== undefined) weedCounts[w]++;
+                            else weedCounts[w] = 1;
+                        });
+                    }
+                }
+            });
+
+            const total = filteredRecords.length;
+            document.getElementById('stats-summary').innerText = `Total des parcelles affichées : ${total}`;
+
+            // 1. Détails des 4 classes de salissement
+            const detailsDiv = document.getElementById('stats-details');
+            if (detailsDiv) {
+                detailsDiv.innerHTML = '';
+                if (total > 0) {
+                    [0, 1, 2, 3].forEach(id => {
+                        const pct = ((counts[id] / total) * 100).toFixed(1).replace('.', ',');
+                        const cfg = classConfig[id];
+                        detailsDiv.innerHTML += `
+                            <div class="flex justify-between items-center text-sm p-2.5 rounded-lg bg-gray-50 border border-gray-100 hover:bg-gray-100 transition">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="w-3.5 h-3.5 rounded-full ${cfg.tailwind} border border-black/10"></span>
+                                    <span class="text-gray-700 font-medium">${cfg.label} <span class="text-xs text-gray-400">(${cfg.note})</span></span>
+                                </div>
+                                <span class="font-bold text-gray-900">${counts[id]} <span class="text-emerald-700 font-semibold ml-1 border-l pl-2 border-gray-300">${pct}%</span></span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    detailsDiv.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Aucune donnée avec ces filtres.</p>';
+                }
+            }
+
+            // 2. Détails des Adventices (% calculé sur les parcelles avec présence d'adventices)
+            const weedsBadge = document.getElementById('weeds-stats-badge');
+            if (weedsBadge) {
+                weedsBadge.innerText = `Sur ${infestedParcelsCount} parcelle${infestedParcelsCount > 1 ? 's' : ''} avec adventices`;
+            }
+
+            const weedsDetailsDiv = document.getElementById('stats-weeds-details');
+            if (weedsDetailsDiv) {
+                weedsDetailsDiv.innerHTML = '';
+                const sortedWeeds = Object.keys(weedCounts).sort((a, b) => weedCounts[b] - weedCounts[a]);
+
+                if (infestedParcelsCount > 0) {
+                    sortedWeeds.forEach(weed => {
+                        const count = weedCounts[weed];
+                        const pctNum = (count / infestedParcelsCount) * 100;
+                        const pctStr = pctNum.toFixed(1).replace('.', ',');
+                        weedsDetailsDiv.innerHTML += `
+                            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100 flex flex-col gap-1.5">
+                                <div class="flex justify-between items-center text-xs sm:text-sm">
+                                    <span class="font-bold text-gray-700">${weed}</span>
+                                    <span class="font-bold text-gray-900">${count} <span class="text-amber-700 font-semibold ml-1 border-l pl-1.5 border-gray-300">${pctStr}%</span></span>
+                                </div>
+                                <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-amber-500 h-full rounded-full transition-all duration-300" style="width: ${Math.min(100, pctNum)}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    weedsDetailsDiv.innerHTML = '<p class="text-sm text-gray-500 text-center py-4 col-span-2">Aucune parcelle avec présence d\'adventices pour ces filtres.</p>';
+                }
+            }
+
+            // 3. Détails par Département
+            const deptDetailsDiv = document.getElementById('stats-dept-details');
+            if (deptDetailsDiv) {
+                deptDetailsDiv.innerHTML = '';
+                let totalDepts = Object.values(deptCounts).reduce((a, b) => a + b, 0);
+                if (totalDepts > 0) {
+                    let sortedDepts = Object.keys(deptCounts).sort((a, b) => deptCounts[b] - deptCounts[a]);
+                    sortedDepts.forEach(dept => {
+                        const count = deptCounts[dept];
+                        const pct = ((count / totalDepts) * 100).toFixed(1).replace('.', ',');
+                        deptDetailsDiv.innerHTML += `
+                            <div class="flex justify-between items-center text-sm p-2 rounded-lg bg-gray-50 border border-gray-100">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-map-pin text-indigo-400 w-3 text-center"></i>
+                                    <span class="text-gray-700 font-medium">Dept ${dept}</span>
+                                </div>
+                                <span class="font-bold text-gray-900">${count} <span class="text-gray-500 font-normal ml-1 border-l pl-2 border-gray-300">${pct}%</span></span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    deptDetailsDiv.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Aucune donnée.</p>';
+                }
+            }
+
+            // Graphique Doughnut des Classes
+            let chartLabels = [
+                'Trés Satisf. (10 -9 )',
+                'Satisfaisant (8 - 7)',
+                'Moyen (6 - 5)',
+                'Insuffisant (< 5)'
+            ];
+            let chartData = [counts[0], counts[1], counts[2], counts[3]];
+            let chartColors = [classConfig[0].hex, classConfig[1].hex, classConfig[2].hex, classConfig[3].hex];
+            renderPieChart(chartData, chartLabels, chartColors);
+        }
+
+        function renderPieChart(data, labels, bgColors) {
+            const canvas = document.getElementById('pieChart');
+            const ctx = canvas.getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            if (data.every(val => val === 0)) {
+                canvas.style.display = 'none';
+                return;
+            } else {
+                canvas.style.display = 'block';
+            }
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data, backgroundColor: bgColors, borderWidth: 2, borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = context.chart._metasets[context.datasetIndex].total;
+                                    const pct = total > 0 ? ((value / total) * 100).toFixed(1).replace('.', ',') : "0,0";
+                                    return ` ${context.label} : ${value} (${pct}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '62%'
+                }
+            });
+        }
+
+        // --- Import (CSV/JSON) & Export ---
+        function exportJSON() {
+            if (records.length === 0) { showToast("Aucune donnée à partager.", "warning"); return; }
+            const dataStr = JSON.stringify(records);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const fileName = `salissement_betteraves_${Date.now()}.json`;
+            if (navigator.share && navigator.canShare) {
+                const file = new File([blob], fileName, { type: "application/json" });
+                if (navigator.canShare({ files: [file] })) {
+                    navigator.share({ title: 'Enquête Salissement Betteraves', text: 'Voici les relevés terrain de salissement.', files: [file] })
+                    .then(() => { showToast("Partage réussi !"); })
+                    .catch(() => { downloadFallback(url, fileName); });
+                    return;
+                }
+            }
+            downloadFallback(url, fileName);
+        }
+
+        function downloadFallback(url, fileName) {
+            const link = document.createElement("a");
+            link.href = url; link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Fichier téléchargé !");
+        }
+
+        function exportCSV() {
+            if (records.length === 0) { showToast("Aucune donnée à exporter.", "warning"); return; }
+            let csvContent = "Date,Heure,Latitude,Longitude,Precision(m),Departement,Classe_ID,Classe_Libelle,Note,Adventices\n";
+            records.forEach(rec => {
+                const d = new Date(rec.timestamp);
+                const cfg = classConfig[rec.classId] || classConfig[0];
+                const safeLabel = `"${cfg.label.replace(/"/g, '""')}"`;
+                const safeNote = `"${cfg.note}"`;
+                const weedsStr = Array.isArray(rec.weeds) ? rec.weeds.join(' | ') : '';
+                const safeWeeds = `"${weedsStr.replace(/"/g, '""')}"`;
+                csvContent += `${d.toLocaleDateString('fr-FR')},${d.toLocaleTimeString('fr-FR')},${rec.lat},${rec.lng},${rec.accuracy},${rec.department},${rec.classId},${safeLabel},${safeNote},${safeWeeds}\n`;
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const now = new Date();
+            const fileName = `enquete_salissement_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}.csv`;
+            link.setAttribute("href", url);
+            link.setAttribute("download", fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Fichier CSV téléchargé !");
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split(/\r?\n/);
+            if (lines.length < 2) return []; 
+            const separator = lines[0].includes(';') ? ';' : ',';
+            const parsedRecords = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const parts = line.split(separator);
+                if (parts.length >= 8) {
+                    const dateStr = parts[0];
+                    const timeStr = parts[1];
+                    const parsedLat = parseFloat((parts[2] || "0").replace(',', '.'));
+                    const parsedLng = parseFloat((parts[3] || "0").replace(',', '.'));
+                    if (isNaN(parsedLat) || isNaN(parsedLng)) continue;
+                    const lat = parsedLat.toFixed(6);
+                    const lng = parsedLng.toFixed(6);
+                    const accuracy = parseInt(parts[4]) || 0;
+                    const dept = parts[5];
+                    const classId = parseInt(parts[6]) || 0;
+                    const cfg = classConfig[classId] || classConfig[0];
+
+                    // Extraction des adventices (colonne 9 si format complet)
+                    let weeds = [];
+                    if (parts.length >= 10) {
+                        const rawWeeds = parts.slice(9).join(separator).replace(/^"|"$/g, '').trim();
+                        if (rawWeeds) {
+                            weeds = rawWeeds.split('|').map(w => w.trim()).filter(Boolean);
+                        }
+                    }
+
+                    let isoDate = new Date().toISOString();
+                    let timestampMs = Date.now() + i;
+                    if (dateStr && dateStr.includes('/')) {
+                        const [day, month, year] = dateStr.split('/');
+                        const safeTime = timeStr ? timeStr : '12:00:00';
+                        const d = new Date(`${year}-${month}-${day}T${safeTime}Z`);
+                        if (!isNaN(d.getTime())) {
+                            isoDate = d.toISOString();
+                            timestampMs = d.getTime() + i;
+                        }
+                    }
+                    parsedRecords.push({
+                        id: timestampMs, timestamp: isoDate, lat: lat, lng: lng,
+                        accuracy: accuracy, department: dept, classId: classId,
+                        className: `${cfg.label} (${cfg.note})`, note: cfg.note, weeds: weeds
+                    });
+                }
+            }
+            return parsedRecords;
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                let importedRecords = [];
+                try {
+                    if (file.name.toLowerCase().endsWith('.csv')) {
+                        importedRecords = parseCSV(content);
+                        if (importedRecords.length === 0) throw new Error("Aucune donnée CSV valide trouvée.");
+                    } else {
+                        const rawJson = JSON.parse(content);
+                        if (!Array.isArray(rawJson)) throw new Error("Format JSON invalide");
+                        importedRecords = rawJson.map((rec, index) => {
+                            const cId = parseInt(rec.classId ?? rec.classe_Id ?? 0);
+                            const cfg = classConfig[cId] || classConfig[0];
+                            return {
+                                id: rec.id || (Date.now() + index),
+                                timestamp: rec.timestamp || new Date().toISOString(),
+                                lat: parseFloat(rec.lat || 0).toFixed(6),
+                                lng: parseFloat(rec.lng || 0).toFixed(6),
+                                accuracy: parseInt(rec.accuracy || 0),
+                                department: rec.department || "Inconnu",
+                                classId: cId,
+                                className: rec.className || `${cfg.label} (${cfg.note})`,
+                                note: rec.note || cfg.note,
+                                weeds: Array.isArray(rec.weeds) ? rec.weeds : []
+                            };
+                        });
+                    }
+                    mergeRecords(importedRecords);
+                } catch (error) {
+                    console.error("Erreur d'import :", error);
+                    showToast("Erreur : Impossible de lire le fichier.", "error");
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function mergeRecords(importedRecords) {
+            let addedCount = 0;
+            const existingSignatures = new Set(records.map(r => {
+                const date = new Date(r.timestamp);
+                const dateStr = isNaN(date.getTime()) ? r.timestamp.split('T')[0] : date.toISOString().split('T')[0];
+                return `${dateStr}_${parseFloat(r.lat).toFixed(5)}_${parseFloat(r.lng).toFixed(5)}`;
+            }));
+            const existingIds = new Set(records.map(r => r.id));
+            importedRecords.forEach((rec) => {
+                const date = new Date(rec.timestamp);
+                const dateStr = isNaN(date.getTime()) ? rec.timestamp.split('T')[0] : date.toISOString().split('T')[0];
+                const signature = `${dateStr}_${parseFloat(rec.lat).toFixed(5)}_${parseFloat(rec.lng).toFixed(5)}`;
+                if (!existingIds.has(rec.id) && !existingSignatures.has(signature)) {
+                    records.push(rec);
+                    existingIds.add(rec.id);
+                    existingSignatures.add(signature);
+                    addedCount++;
+                }
+            });
+            if (addedCount > 0) {
+                records.sort((a, b) => b.id - a.id);
+                saveRecords();
+                updateHistoryUI();
+                if (mapLayerGroup) updateMapMarkers();
+                initFilters();
+                updateStats();
+                showToast(`${addedCount} nouveau(x) relevé(s) fusionné(s) !`, "success");
+            } else {
+                showToast("Aucun nouveau relevé (données déjà existantes).", "warning");
+            }
+        }
+
+        function confirmClearData() {
+            if (records.length === 0) { showToast("Aucune donnée.", "warning"); return; }
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+        function closeConfirmModal() { document.getElementById('confirm-modal').classList.add('hidden'); }
+        function clearData() {
+            records = [];
+            saveRecords();
+            updateHistoryUI();
+            if (mapLayerGroup) mapLayerGroup.clearLayers();
+            const countSpan = document.getElementById('map-point-count');
+            if (countSpan) countSpan.innerText = '0';
+            if (chartInstance) chartInstance.destroy();
+            clearRoute();
+            if (isRouteMode) toggleRouteMode();
+            selectedDepts.clear();
+            selectedClasses.clear();
+            selectedWeedsFilter.clear();
+            initFilters();
+            updateStats();
+            closeConfirmModal();
+            showToast("Toutes les données ont été effacées.");
+        }
+    </script>
+</body>
+</html>
