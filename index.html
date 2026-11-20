@@ -131,7 +131,7 @@
             <!-- VUE 2 : CARTE -->
             <main id="view-carte" class="hidden absolute inset-0 z-0 bg-gray-100">
                 <div id="map" class="w-full h-full absolute inset-0"></div>
-                <div class="absolute top-2 left-2 right-2 md:right-auto md:w-[650px] z-[1000] flex gap-1.5 print-hide">
+                <div class="absolute top-2 left-2 right-2 md:right-auto md:w-[650px] z-[1100] flex gap-1.5 print-hide">
                     <div class="relative flex-1 filter-dropdown min-w-0">
                         <button onclick="toggleDropdown('map-dept')" id="btn-map-dept" class="w-full bg-white/95 backdrop-blur-sm border border-gray-300 text-gray-800 text-[10px] sm:text-xs font-bold rounded-lg p-2 shadow-md flex justify-between items-center"><span class="truncate">Tous Depts</span><i class="fas fa-chevron-down text-[10px] text-gray-400 ml-1"></i></button>
                         <div id="dropdown-map-dept" class="hidden absolute top-full left-0 w-48 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto custom-scrollbar"></div>
@@ -149,7 +149,7 @@
                         <div id="dropdown-map-operator" class="hidden absolute top-full right-0 w-48 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto custom-scrollbar"></div>
                     </div>
                 </div>
-                <div id="map-legend" class="absolute top-16 right-2 z-[1000] bg-white/95 backdrop-blur-sm p-3 rounded-lg shadow-md border border-gray-200 pointer-events-none">
+                <div id="map-legend" class="absolute top-16 right-2 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-lg shadow-md border border-gray-200 pointer-events-none">
                     <h4 class="font-bold text-xs text-gray-700 mb-2 uppercase tracking-wider">Salissement</h4>
                     <div class="flex flex-col gap-1.5 text-xs font-medium text-gray-600">
                         <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#166534] border border-black/10 block"></span>Très Satisf. (10-9)</div>
@@ -217,7 +217,7 @@
     </div>
 
     <!-- MODALE SÉLECTION ADVENTICES -->
-    <div id="weeds-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-[200] hidden flex items-end sm:items-center justify-center p-0 sm:p-4 print-hide">
+    <div id="weeds-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-[2000] hidden flex items-end sm:items-center justify-center p-0 sm:p-4 print-hide">
         <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[90dvh] flex flex-col overflow-hidden animate-fade-in">
             <div id="weeds-modal-header" class="p-4 text-white flex justify-between items-center">
                 <div><h3 id="weeds-modal-title" class="text-lg font-black">Sélection des adventices</h3><p class="text-xs opacity-90 flex items-center gap-1 mt-0.5"><i class="fas fa-map-pin"></i> Choix multiple</p></div>
@@ -231,13 +231,23 @@
         </div>
     </div>
     
-    <div id="toast-container" class="fixed bottom-20 left-0 right-0 z-[250] flex justify-center px-4">
+    <div id="toast-container" class="fixed bottom-20 left-0 right-0 z-[2500] flex justify-center px-4">
         <div id="toast-content" class="bg-gray-900 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 font-medium text-sm"><i id="toast-icon" class="fas fa-check-circle text-green-400"></i><span id="toast-message">Action réussie</span></div>
     </div>
-    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[200] hidden flex items-center justify-center p-4 print-hide">
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[2000] hidden flex items-center justify-center p-4 print-hide">
         <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
             <h3 class="text-lg font-bold text-gray-900 mb-2">Effacer les données ?</h3><p class="text-gray-600 text-sm mb-6">Êtes-vous sûr de vouloir supprimer tous les relevés de cet appareil ?</p>
             <div class="flex gap-3"><button onclick="closeConfirmModal()" class="flex-1 py-2.5 rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">Annuler</button><button onclick="clearData()" class="flex-1 py-2.5 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700">Supprimer</button></div>
+        </div>
+    </div>
+    <div id="delete-single-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[2000] hidden flex items-center justify-center p-4 print-hide">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 class="text-lg font-bold text-gray-900 mb-2"><i class="fas fa-trash-alt text-red-500 mr-2"></i>Supprimer ce relevé ?</h3>
+            <p id="delete-single-desc" class="text-gray-600 text-sm mb-6">Ce point sera supprimé de cet appareil et de la base Google Sheets partagée.</p>
+            <div class="flex gap-3">
+                <button onclick="closeDeleteSingleModal()" class="flex-1 py-2.5 rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">Annuler</button>
+                <button onclick="confirmDeleteSingleRecord()" class="flex-1 py-2.5 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700">Supprimer</button>
+            </div>
         </div>
     </div>
 
@@ -251,6 +261,7 @@
 
         const USERS_DB = { "ITB45": "Betteraves452026!", "ITB02": "Betteraves022026!", "ITB80/60": "Betteraves802026!", "ITB76": "Betteraves762026!", "ITB51": "Betteraves512026!", "ITBGRIFFON": "Griffon022026!", "ADMIN": "Admin2026!" };
         let currentUser = ""; let syncInterval = null; let isSyncing = false; let pendingSync = false;
+        let deletedIds = new Set(); let pendingDeleteId = null;
         
         const classConfig = { 0: { id: 0, label: 'Très Satisfaisant', note: '10 - 9', hex: '#166534', tailwind: 'bg-[#166534]', headerBg: 'bg-[#166534] text-white' }, 1: { id: 1, label: 'Satisfaisant', note: '8 - 7', hex: '#86efac', tailwind: 'bg-[#86efac]', headerBg: 'bg-emerald-600 text-white' }, 2: { id: 2, label: 'Moyen', note: '6 - 5', hex: '#facc15', tailwind: 'bg-[#facc15]', headerBg: 'bg-amber-500 text-gray-900' }, 3: { id: 3, label: 'Insuffisant', note: '< 5', hex: '#dc2626', tailwind: 'bg-[#dc2626]', headerBg: 'bg-[#dc2626] text-white' } };
         const WEEDS_LIST = ['Chénopode', 'Ombellifère', 'Mercuriale', 'Matricaire', 'Graminées', 'Colza', 'Chardons', 'Laiterons', 'Amaranthe', 'Rumex', 'Autres'];
@@ -322,18 +333,18 @@
                 setCloudColor('text-blue-300');
                 if (icon) icon.classList.add('fa-fade');
 
-                // 1. Envoyer les relevés locaux vers Google Sheets (no-cors + text/plain pour contourner le blocage CORS)
-                if (records.length > 0) {
+                // 1. Envoyer les relevés locaux et les suppressions vers Google Sheets
+                if (records.length > 0 || deletedIds.size > 0) {
                     await fetch(GOOGLE_APP_URL + '?app=' + APP_NAME, {
                         method: 'POST',
                         mode: 'no-cors',
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(records)
+                        body: JSON.stringify({ records: records, deletedIds: Array.from(deletedIds) })
                     });
                 }
 
-                // 2. Récupérer tous les relevés de l'équipe depuis Google Sheets
-                const res = await fetch(GOOGLE_APP_URL + '?app=' + APP_NAME + '&_t=' + Date.now(), {
+                // 2. Récupérer tous les relevés et suppressions de l'équipe depuis Google Sheets
+                const res = await fetch(GOOGLE_APP_URL + '?app=' + APP_NAME + '&v=2&_t=' + Date.now(), {
                     method: 'GET',
                     redirect: 'follow'
                 });
@@ -344,18 +355,42 @@
                     throw new Error("Accès refusé par Google (Vérifiez 'Tout le monde' dans Déployer)");
                 }
 
-                const serverRecords = JSON.parse(text);
+                const parsed = JSON.parse(text);
+                const serverRecords = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.records) ? parsed.records : null);
+                const serverDeletedIds = (!Array.isArray(parsed) && Array.isArray(parsed.deletedIds)) ? parsed.deletedIds : [];
+
                 if (!Array.isArray(serverRecords)) {
                     throw new Error("Format de réponse invalide");
                 }
 
+                // Appliquer les suppressions venant des autres téléphones
+                let removed = 0;
+                if (serverDeletedIds.length > 0) {
+                    const delSet = new Set(serverDeletedIds.map(String));
+                    let deletedChanged = false;
+                    delSet.forEach(id => {
+                        if (!deletedIds.has(id)) {
+                            deletedIds.add(id);
+                            deletedChanged = true;
+                        }
+                    });
+                    if (deletedChanged) saveDeletedIds();
+                    const prevLen = records.length;
+                    records = records.filter(r => !delSet.has(String(r.id)));
+                    removed = prevLen - records.length;
+                    if (removed > 0) saveRecords();
+                }
+
                 const added = mergeRecordsSilent(serverRecords);
-                if (added > 0) {
+                if (added > 0 || removed > 0) {
                     updateHistoryUI();
                     if (mapLayerGroup) updateMapMarkers();
                     initFilters();
                     updateStats();
-                    if (manual) showToast(`${added} point(s) récupéré(s) !`);
+                    if (manual) {
+                        if (added > 0) showToast(`${added} point(s) récupéré(s) !`);
+                        else showToast(`${removed} point(s) retiré(s) !`);
+                    }
                 } else if (manual) {
                     showToast("Base synchronisée avec succès !");
                 }
@@ -387,6 +422,7 @@
             importedRecords.forEach((rec) => {
                 if (!rec || !rec.id) return;
                 const recIdStr = String(rec.id);
+                if (deletedIds.has(recIdStr)) return;
                 const dateStr = String(rec.timestamp || '').split('T')[0];
                 const signature = `${dateStr}_${parseFloat(rec.lat).toFixed(5)}_${parseFloat(rec.lng).toFixed(5)}`;
 
@@ -468,7 +504,49 @@
             fetch(`https://geo.api.gouv.fr/communes?lat=${newRecord.lat}&lon=${newRecord.lng}&fields=codeDepartement`).then(response => response.json()).then(data => { const index = records.findIndex(r => r.id === newRecord.id); if (index !== -1) { records[index].department = (data && data.length > 0 && data[0].codeDepartement) ? data[0].codeDepartement : "Hors FR"; saveRecords(); updateHistoryUI(); initFilters(); if (mapLayerGroup) updateMapMarkers(); syncWithServer(); } }).catch(err => { const index = records.findIndex(r => r.id === newRecord.id); if (index !== -1) { records[index].department = "Inconnu"; saveRecords(); if (mapLayerGroup) updateMapMarkers(); syncWithServer(); } });
         }
         function saveRecords() { localStorage.setItem('salissement_records', JSON.stringify(records)); }
-        function loadRecords() { const saved = localStorage.getItem('salissement_records'); if (saved) { try { records = JSON.parse(saved); } catch(e) { records = []; } } updateHistoryUI(); }
+        function saveDeletedIds() { localStorage.setItem('salissement_deleted_ids', JSON.stringify(Array.from(deletedIds).slice(-500))); }
+        function loadRecords() {
+            const saved = localStorage.getItem('salissement_records');
+            if (saved) { try { records = JSON.parse(saved); } catch(e) { records = []; } }
+            const savedDel = localStorage.getItem('salissement_deleted_ids');
+            if (savedDel) { try { deletedIds = new Set(JSON.parse(savedDel).map(String)); } catch(e) { deletedIds = new Set(); } }
+            updateHistoryUI();
+        }
+
+        function requestDeleteSingleRecord(id) {
+            const rec = records.find(r => String(r.id) === String(id));
+            if (!rec) return;
+            pendingDeleteId = String(rec.id);
+            const cfg = classConfig[rec.classId] || classConfig[0];
+            const timeStr = new Date(rec.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const desc = document.getElementById('delete-single-desc');
+            if (desc) {
+                desc.innerText = `Supprimer « ${cfg.label} (${cfg.note}) » (Dept ${rec.department}, ${timeStr}) ? Ce point sera aussi retiré de Google Sheets pour toute l'équipe.`;
+            }
+            document.getElementById('delete-single-modal').classList.remove('hidden');
+        }
+
+        function closeDeleteSingleModal() {
+            pendingDeleteId = null;
+            document.getElementById('delete-single-modal').classList.add('hidden');
+        }
+
+        function confirmDeleteSingleRecord() {
+            if (!pendingDeleteId) return;
+            const idToDelete = pendingDeleteId;
+            records = records.filter(r => String(r.id) !== idToDelete);
+            deletedIds.add(idToDelete);
+            saveRecords();
+            saveDeletedIds();
+            closeDeleteSingleModal();
+            if (map) map.closePopup();
+            updateHistoryUI();
+            if (mapLayerGroup) updateMapMarkers();
+            initFilters();
+            updateStats();
+            showToast("Relevé supprimé !");
+            syncWithServer(false);
+        }
 
         function updateHistoryUI() {
             const historyList = document.getElementById('history-list'); document.getElementById('record-count').innerText = records.length; historyList.innerHTML = '';
@@ -476,10 +554,11 @@
             const displayRecords = records.slice(0, 50);
             displayRecords.forEach(rec => {
                 const date = new Date(rec.timestamp); const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); const cfg = classConfig[rec.classId] || classConfig[0];
+                const safeId = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, '');
                 const operatorStr = rec.operator ? `<span class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 text-[10px] ml-1 flex-shrink-0">${rec.operator}</span>` : '';
                 const weedsBadges = (rec.weeds && rec.weeds.length > 0) ? `<div class="flex flex-wrap gap-1 mt-1">${rec.weeds.map(w => `<span class="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-medium">${w}</span>`).join('')}</div>` : '';
                 const li = document.createElement('li'); li.className = 'p-3 flex items-start justify-between hover:bg-gray-50 transition';
-                li.innerHTML = `<div class="flex items-start gap-3 overflow-hidden"><div class="w-4 h-4 rounded-full ${cfg.tailwind} flex-shrink-0 shadow-sm border border-black/10 mt-1"></div><div class="flex flex-col overflow-hidden"><span class="font-bold text-gray-800 text-sm truncate flex items-center flex-wrap">${cfg.label} <span class="text-xs font-semibold text-emerald-700 ml-1">[${cfg.note}]</span> ${operatorStr}</span><span class="text-xs font-normal text-gray-500">(${rec.department}) • ${rec.lat}, ${rec.lng}</span>${weedsBadges}</div></div><span class="text-xs font-mono text-gray-400 ml-2 flex-shrink-0 mt-1">${timeStr}</span>`;
+                li.innerHTML = `<div class="flex items-start gap-3 overflow-hidden"><div class="w-4 h-4 rounded-full ${cfg.tailwind} flex-shrink-0 shadow-sm border border-black/10 mt-1"></div><div class="flex flex-col overflow-hidden"><span class="font-bold text-gray-800 text-sm truncate flex items-center flex-wrap">${cfg.label} <span class="text-xs font-semibold text-emerald-700 ml-1">[${cfg.note}]</span> ${operatorStr}</span><span class="text-xs font-normal text-gray-500">(${rec.department}) • ${rec.lat}, ${rec.lng}</span>${weedsBadges}</div></div><div class="flex items-center gap-1.5 ml-2 flex-shrink-0"><span class="text-xs font-mono text-gray-400">${timeStr}</span><button onclick="requestDeleteSingleRecord('${safeId}')" title="Supprimer ce relevé" class="w-8 h-8 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 flex items-center justify-center transition"><i class="fas fa-trash-alt text-xs"></i></button></div>`;
                 historyList.appendChild(li);
             });
         }
@@ -525,7 +604,7 @@
 
         function updateMapMarkers() {
             if (!mapLayerGroup) return; mapLayerGroup.clearLayers(); let count = 0;
-            getFilteredRecords().forEach(rec => { const lat = parseFloat(rec.lat); const lng = parseFloat(rec.lng); if (isNaN(lat) || isNaN(lng)) return; const cfg = classConfig[rec.classId] || classConfig[0]; const marker = L.circleMarker([lat, lng], { radius: 7, fillColor: cfg.hex, color: '#ffffff', weight: 1.5, opacity: 1, fillOpacity: 0.95 }); const time = new Date(rec.timestamp).toLocaleTimeString('fr-FR'); const weedsText = (rec.weeds && rec.weeds.length > 0) ? `<br><b>Adventices :</b> ${rec.weeds.join(', ')}` : ''; marker.bindPopup(`<b>${cfg.label} (${cfg.note})</b><br>Dept: ${rec.department}<br>Opérateur: ${rec.operator || 'Inconnu'}<br>Heure: ${time}${weedsText}`); mapLayerGroup.addLayer(marker); count++; });
+            getFilteredRecords().forEach(rec => { const lat = parseFloat(rec.lat); const lng = parseFloat(rec.lng); if (isNaN(lat) || isNaN(lng)) return; const cfg = classConfig[rec.classId] || classConfig[0]; const safeId = String(rec.id).replace(/[^a-zA-Z0-9_-]/g, ''); const marker = L.circleMarker([lat, lng], { radius: 7, fillColor: cfg.hex, color: '#ffffff', weight: 1.5, opacity: 1, fillOpacity: 0.95 }); const time = new Date(rec.timestamp).toLocaleTimeString('fr-FR'); const weedsText = (rec.weeds && rec.weeds.length > 0) ? `<br><b>Adventices :</b> ${rec.weeds.join(', ')}` : ''; marker.bindPopup(`<b>${cfg.label} (${cfg.note})</b><br>Dept: ${rec.department}<br>Opérateur: ${rec.operator || 'Inconnu'}<br>Heure: ${time}${weedsText}<div class="mt-2 pt-2 border-t border-gray-200"><button onclick="requestDeleteSingleRecord('${safeId}')" class="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs py-1.5 px-2 rounded-md border border-red-200 flex items-center justify-center gap-1.5 transition"><i class="fas fa-trash-alt"></i> Supprimer ce point</button></div>`); mapLayerGroup.addLayer(marker); count++; });
             mapLayerGroup.bringToFront(); if (userMarker) userMarker.bringToFront(); document.getElementById('map-point-count').innerText = count;
         }
 
